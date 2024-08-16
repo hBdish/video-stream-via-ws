@@ -5,13 +5,12 @@ ws.binaryType = 'arraybuffer'
 
 const mimeType = 'video/webm; codecs="opus,vp8"';
 
-
 const VideoRecorder = () => {
   const [permission, setPermission] = useState(false);
 
-  const mediaRecorder = useRef(null);
+  const mediaRecorder = useRef<MediaRecorder>(null);
 
-  const liveVideoFeed = useRef(null);
+  const liveVideoFeed = useRef<HTMLVideoElement>(null);
 
   const wsVideoFeed = useRef<HTMLVideoElement>(null);
 
@@ -21,17 +20,13 @@ const VideoRecorder = () => {
 
   const [recordingStatus, setRecordingStatus] = useState("inactive");
 
-  const [stream, setStream] = useState(null);
+  const [stream, setStream] = useState<MediaStream>();
 
   const [recordedVideo, setRecordedVideo] = useState(null);
 
   const [videoChunks, setVideoChunks] = useState([]);
 
-
   const arrayOfBlobs = useRef<Blob[]>([]);
-
-
-
 
   useEffect(() => {
     ws.onopen = () => {
@@ -40,31 +35,25 @@ const VideoRecorder = () => {
 
     wsVideoSource.current = new MediaSource()
 
+    if (!wsVideoSource.current || !wsVideoFeed.current) return
+
     wsVideoFeed.current.src = URL.createObjectURL(wsVideoSource.current);
 
     wsVideoSource.current.addEventListener("sourceopen", function() {
       console.log("sourceopen")
-      wsVideoSourceBuffer.current = wsVideoSource.current.addSourceBuffer(mimeType)
 
-      wsVideoSourceBuffer.current.addEventListener("updateend", appendToSourceBuffer);
+      wsVideoSourceBuffer.current = wsVideoSource?.current?.addSourceBuffer(mimeType)
+      wsVideoSourceBuffer?.current?.addEventListener("updateend", appendToSourceBuffer);
     });
 
   }, []);
 
 
-
-
-
-
-
-
   async function appendToSourceBuffer() {
     console.log("appendToSourceBuffer")
-    console.log(wsVideoSource.current.readyState)
+    console.log(wsVideoSource?.current?.readyState)
 
-
-
-    if (wsVideoSource.current.readyState === "open" && wsVideoSourceBuffer.current && !wsVideoSourceBuffer.current.updating) {
+    if (wsVideoSource?.current?.readyState === "open" && wsVideoSourceBuffer.current && !wsVideoSourceBuffer.current.updating) {
       const val = arrayOfBlobs.current.shift()
 
       if (!val) return;
@@ -73,28 +62,15 @@ const VideoRecorder = () => {
     }
 
     // Limit total buffer size
-    if (wsVideoFeed.current.buffered.length && wsVideoFeed.current.buffered.end(0) - wsVideoFeed.current.buffered.start(0) > 1200) {
-      wsVideoSourceBuffer.current.remove(0, wsVideoFeed.current.buffered.end(0) - 1200);
+    if (wsVideoFeed?.current?.buffered.length && wsVideoFeed.current.buffered.end(0) - wsVideoFeed.current.buffered.start(0) > 1200) {
+      wsVideoSourceBuffer?.current?.remove(0, wsVideoFeed.current.buffered.end(0) - 1200);
     }
   }
 
   ws.onmessage =  (event) => {
-    // wsVideoChunks.current.push(event.data)
-    // const blob = new Blob(wsVideoChunks.current, {type: mimeType});
-
     const blob = new Blob([event.data], {type: mimeType});
     arrayOfBlobs.current.push(blob)
     appendToSourceBuffer();
-
-    // wsVideoFeed.current.src = URL.createObjectURL(blob);
-    // const reader = new FileReader();
-    // reader.readAsDataURL(blob); // конвертирует Blob в base64 и вызывает onload
-
-    // reader.onload = function() {
-    //   // console.log(reader.result)
-    // };
-
-
   };
 
 
@@ -128,13 +104,13 @@ const VideoRecorder = () => {
 
         setStream(combinedStream);
 
+        if (!liveVideoFeed.current) return
+
         //set videostream to live feed player
         liveVideoFeed.current.srcObject = videoStream;
 
-
-
       } catch (err) {
-        alert(err.message);
+        alert(err);
       }
     } else {
       alert("The MediaRecorder API is not supported in your browser.");
@@ -144,10 +120,11 @@ const VideoRecorder = () => {
   const startRecording = async () => {
     setRecordingStatus("recording");
 
+    if (!stream) return;
+
     const media = new MediaRecorder(stream, { mimeType });
 
     mediaRecorder.current = media;
-
     mediaRecorder.current.start(200);
 
     const localVideoChunks = [];
@@ -169,6 +146,8 @@ const VideoRecorder = () => {
   const stopRecording = () => {
     setPermission(false);
     setRecordingStatus("inactive");
+    if (mediaRecorder.current) return
+
     mediaRecorder.current.stop();
 
     mediaRecorder.current.onstop = () => {
